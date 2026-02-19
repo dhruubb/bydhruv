@@ -1,0 +1,13 @@
+/* Liquid gradient background */
+.liquid-bg {
+    background: linear-gradient(270deg, #ff0080, #7928ca, #00d2ff, #ff0080);
+    background-size: 800% 800%;
+    animation: liquidGradient 15s ease infinite;
+  }
+  
+  @keyframes liquidGradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
