@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Masonry from "react-masonry-css";
 
 /* ===================== DATA ===================== */
@@ -17,7 +17,6 @@ const videos = [
     src: "https://res.cloudinary.com/dm91yrvv2/video/upload/v1770657388/vinodkhosla_final_h4ovof.mov",
     type: "v",
     title: "Podcast Trailer",
-   
     year: "2024",
     tags: ["podcast"],
   },
@@ -34,7 +33,6 @@ const videos = [
     src: "https://res.cloudinary.com/dm91yrvv2/video/upload/v1770657333/motion-graphics_g69kaz.mov",
     type: "v",
     title: "Motion Graphics",
-   
     year: "2024",
     tags: ["motion graphics", "brand"],
   },
@@ -44,7 +42,7 @@ const videos = [
     title: "lost cause",
     description: "lost cause is our best song yet. We legit shot and edited the video 2 days before the release of the song. The video features Aryan Joshi and Vaishnavi Rai. ",
     year: "2023",
-    tags: ["song",  "musicvideo"],
+    tags: ["song", "musicvideo"],
   },
   {
     src: "https://res.cloudinary.com/dm91yrvv2/video/upload/v1770657363/kdot-edit_syonoo.mov",
@@ -77,8 +75,7 @@ const videos = [
     src: "https://res.cloudinary.com/dm91yrvv2/video/upload/v1770657358/speaker-reveal_v07upe.mov",
     type: "v",
     title: "Summit Speaker Reveal",
-    description:
-      "Speaker Reveal for E-Summit 2025",
+    description: "Speaker Reveal for E-Summit 2025",
     year: "2024",
     tags: ["event", "reveal", "college"],
   },
@@ -97,14 +94,7 @@ const videos = [
     description:
       "made this while exploring touchdesigner. this was supposed to be a visualiser for my song with chaitanya called chase. in that song, we explored the topic of substance use. the line where we start to abuse it, how thin it can be. the escapism that comes with it. ",
     year: "2023",
-    tags: [ "touchdesigner"],
-  },
-  {
-    src: "/videos/marathon.mp4",
-    type: "v",
-    title: "SPIT Marathon 2k24",
-    year: "2024",
-    tags: ["sports", "event", "college"],
+    tags: ["touchdesigner"],
   },
   {
     src: "https://res.cloudinary.com/dm91yrvv2/video/upload/v1770657381/EduminattiEcoleGlobale_daudbz.mov",
@@ -147,8 +137,7 @@ const videos = [
     src: "https://res.cloudinary.com/dm91yrvv2/video/upload/v1770657316/crt_eywuwd.mov",
     type: "h",
     title: "CRT",
-    description:
-      "found this hard CRT plugin",
+    description: "found this hard CRT plugin",
     year: "2023",
     tags: ["experimental"],
   },
@@ -168,6 +157,16 @@ const breakpointColumns = {
   640: 2,
 };
 
+/* ===================== HELPERS ===================== */
+
+/**
+ * Returns an optimised video src by injecting q_auto,f_auto for Cloudinary URLs.
+ */
+const getOptimisedSrc = (src) => {
+  if (!src.includes("res.cloudinary.com")) return src;
+  return src.replace("/video/upload/", "/video/upload/q_auto,f_auto/");
+};
+
 /* ===================== ICONS ===================== */
 
 const MagneticTitleIcon = () => {
@@ -176,11 +175,9 @@ const MagneticTitleIcon = () => {
   const onMove = (e) => {
     const el = ref.current;
     if (!el) return;
-
     const rect = el.getBoundingClientRect();
     const x = e.clientX - (rect.left + rect.width / 2);
     const y = e.clientY - (rect.top + rect.height / 2);
-
     el.style.transform = `translate(${x * 0.5}px, ${y * 0.5}px) rotate(${x * 0.1}deg)`;
   };
 
@@ -215,7 +212,83 @@ const CloseIcon = () => (
   </svg>
 );
 
-/* ===================== COMPONENT ===================== */
+/* ===================== PLAY BUTTON OVERLAY ===================== */
+
+const PlayOverlay = () => (
+  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+      <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white ml-0.5">
+        <path d="M8 5v14l11-7z" />
+      </svg>
+    </div>
+  </div>
+);
+
+/* ===================== GRID CARD ===================== */
+
+const VideoCard = ({ video, onClick }) => {
+  const [inView, setInView] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const containerRef = useRef(null);
+  const videoRef = useRef(null);
+
+  // Only set the src and start playing once the card scrolls into view.
+  // rootMargin: "200px" means we start loading 200px before it's visible.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect(); // Only need to trigger once
+        }
+      },
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Once src is set and video is ready, play it
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !inView) return;
+    el.play().catch(() => {});
+  }, [inView, loaded]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative group mb-6 rounded-3xl overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-300 bg-neutral-900"
+      onClick={onClick}
+    >
+      {/* Placeholder shown before video loads — keeps layout stable */}
+      {!loaded && (
+        <div className="w-full aspect-video animate-pulse bg-neutral-800 rounded-3xl" />
+      )}
+
+      {inView && (
+        <video
+          ref={videoRef}
+          src={getOptimisedSrc(video.src)}
+          muted
+          loop
+          playsInline
+          preload="none"
+          onCanPlay={() => setLoaded(true)}
+          className={`w-full block transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0 absolute inset-0"}`}
+        />
+      )}
+
+      <PlayOverlay />
+    </div>
+  );
+};
+
+/* ===================== MAIN COMPONENT ===================== */
 
 export default function VideoGrid() {
   const [activeVideo, setActiveVideo] = useState(null);
@@ -223,14 +296,12 @@ export default function VideoGrid() {
 
   useEffect(() => {
     const onEsc = (e) => e.key === "Escape" && setActiveVideo(null);
-
     if (activeVideo) {
       document.body.style.overflow = "hidden";
       window.addEventListener("keydown", onEsc);
     } else {
       document.body.style.overflow = "";
     }
-
     return () => {
       document.body.style.overflow = "";
       window.removeEventListener("keydown", onEsc);
@@ -240,11 +311,9 @@ export default function VideoGrid() {
   const handleCloseMove = (e) => {
     const el = closeRef.current;
     if (!el) return;
-
     const rect = el.getBoundingClientRect();
     const x = e.clientX - (rect.left + rect.width / 2);
     const y = e.clientY - (rect.top + rect.height / 2);
-
     el.style.transform = `translate(${x * 0.2}px, ${y * 0.2}px) rotate(90deg)`;
   };
 
@@ -263,20 +332,11 @@ export default function VideoGrid() {
           columnClassName="px-2"
         >
           {videos.map((video, i) => (
-            <div
+            <VideoCard
               key={i}
-              className="mb-6 rounded-3xl overflow-hidden cursor-pointer hover:scale-105 transition"
+              video={video}
               onClick={() => setActiveVideo(video)}
-            >
-              <video
-                src={video.src}
-                autoPlay
-                muted
-                loop
-                playsInline
-                className="w-full"
-              />
-            </div>
+            />
           ))}
         </Masonry>
       </section>
@@ -303,8 +363,9 @@ export default function VideoGrid() {
             className="min-h-screen flex flex-col items-center justify-center px-6 py-20"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Modal video uses the optimised src with q_auto,f_auto */}
             <video
-              src={activeVideo.src}
+              src={getOptimisedSrc(activeVideo.src)}
               controls
               autoPlay
               className="max-w-5xl max-h-[70vh] rounded-2xl"
