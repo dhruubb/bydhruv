@@ -212,18 +212,6 @@ const CloseIcon = () => (
   </svg>
 );
 
-/* ===================== PLAY BUTTON OVERLAY ===================== */
-
-const PlayOverlay = () => (
-  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-      <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white ml-0.5">
-        <path d="M8 5v14l11-7z" />
-      </svg>
-    </div>
-  </div>
-);
-
 /* ===================== GRID CARD ===================== */
 
 const VideoCard = ({ video, onClick }) => {
@@ -262,7 +250,7 @@ const VideoCard = ({ video, onClick }) => {
   return (
     <div
       ref={containerRef}
-      className="relative group mb-6 rounded-3xl overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-300 bg-neutral-900"
+      className="relative mb-6 rounded-3xl overflow-hidden cursor-pointer hover:scale-110 transition-all duration-300 hover:shadow-2xl hover:shadow-black/60 hover:z-10 bg-neutral-900"
       onClick={onClick}
     >
       {/* Placeholder shown before video loads — keeps layout stable */}
@@ -282,8 +270,6 @@ const VideoCard = ({ video, onClick }) => {
           className={`w-full block transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0 absolute inset-0"}`}
         />
       )}
-
-      <PlayOverlay />
     </div>
   );
 };
