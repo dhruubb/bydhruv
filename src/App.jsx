@@ -2,6 +2,7 @@ import VideoGrid from "./components/VideoGrid";
 import Music from "./components/Music";
 import StickyTitleSection from "./components/StickyTitleSection";
 import Snowfall from "react-snowfall";
+import { Analytics } from "@vercel/analytics/react";
 
 // Icons
 import GmailIcon from "./assets/icons8-gmail.svg";
@@ -63,7 +64,6 @@ export default function App() {
               my socials.
             </p>
 
-            {/* Icons */}
             <div className="flex justify-center flex-wrap md:flex-nowrap gap-5 sm:gap-7 md:gap-10 max-w-xs sm:max-w-md md:max-w-none mx-auto">
               {[
                 {
@@ -92,35 +92,24 @@ export default function App() {
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="
-                    group
-                    transition-all duration-300 ease-out
-                    hover:-translate-y-2 hover:scale-125
-                    active:scale-110
-                  "
+                  className="group transition-all duration-300 ease-out hover:-translate-y-2 hover:scale-125 active:scale-110"
                 >
                   <div
-                    className="
-                      w-16 h-16 sm:w-18 sm:h-18 md:w-24 md:h-24
-                      flex items-center justify-center
-                      rounded-full
-                      bg-white/5
-                      backdrop-blur-md
-                      group-hover:bg-blue-500/10
-                      group-hover:shadow-[0_0_35px_rgba(59,130,246,0.45)]
-                      transition-all duration-300
-                    "
+                    className="w-16 h-16 sm:w-18 sm:h-18 md:w-24 md:h-24
+                    flex items-center justify-center
+                    rounded-full
+                    bg-white/5
+                    backdrop-blur-md
+                    group-hover:bg-blue-500/10
+                    group-hover:shadow-[0_0_35px_rgba(59,130,246,0.45)]
+                    transition-all duration-300"
                   >
                     <img
                       src={icon}
                       alt={alt}
-                      className="
-                        w-8 h-8 sm:w-9 sm:h-9 md:w-12 md:h-12
-                        invert
-                        opacity-80
-                        group-hover:opacity-100
-                        transition-opacity duration-300
-                      "
+                      className="w-8 h-8 sm:w-9 sm:h-9 md:w-12 md:h-12
+                      invert opacity-80 group-hover:opacity-100
+                      transition-opacity duration-300"
                     />
                   </div>
                 </a>
@@ -129,6 +118,9 @@ export default function App() {
           </div>
         </section>
       </StickyTitleSection>
+
+      {/* Vercel Analytics */}
+      <Analytics />
     </div>
   );
 }
