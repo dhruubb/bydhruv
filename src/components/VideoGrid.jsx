@@ -212,6 +212,252 @@ const CloseIcon = () => (
   </svg>
 );
 
+/* ===================== CUSTOM PLAYER ===================== */
+
+const CustomPlayer = ({ src }) => {
+  const videoRef = useRef(null);
+  const progressRef = useRef(null);
+  const containerRef = useRef(null);
+  const hideTimer = useRef(null);
+
+  const [playing, setPlaying] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [showControls, setShowControls] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [hoverTime, setHoverTime] = useState(null);
+  const [hoverX, setHoverX] = useState(0);
+  // aspectRatio: width/height of the video, null until known
+  const [aspectRatio, setAspectRatio] = useState(null);
+
+  const resetHideTimer = () => {
+    setShowControls(true);
+    clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setShowControls(false), 3000);
+  };
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.play().catch(() => {});
+    resetHideTimer();
+    return () => clearTimeout(hideTimer.current);
+  }, [src]);
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const togglePlay = () => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (el.paused) el.play();
+    else el.pause();
+  };
+
+  const toggleMute = () => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = !el.muted;
+    setMuted(el.muted);
+  };
+
+  const changeVolume = (e) => {
+    const el = videoRef.current;
+    if (!el) return;
+    const v = parseFloat(e.target.value);
+    el.volume = v;
+    el.muted = v === 0;
+    setVolume(v);
+    setMuted(v === 0);
+  };
+
+  const onTimeUpdate = () => {
+    const el = videoRef.current;
+    if (!el) return;
+    setCurrentTime(el.currentTime);
+    setProgress((el.currentTime / el.duration) * 100);
+  };
+
+  const onLoadedMetadata = () => {
+    const el = videoRef.current;
+    if (!el) return;
+    setDuration(el.duration);
+    // Capture exact aspect ratio from the video itself
+    setAspectRatio(el.videoWidth / el.videoHeight);
+  };
+
+  const getBarPct = (e) => {
+    const bar = progressRef.current;
+    if (!bar) return 0;
+    const rect = bar.getBoundingClientRect();
+    return Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+  };
+
+  const seek = (e) => {
+    const el = videoRef.current;
+    if (!el) return;
+    const pct = getBarPct(e);
+    el.currentTime = pct * el.duration;
+    setProgress(pct * 100);
+    setCurrentTime(pct * el.duration);
+  };
+
+  const onProgressMouseMove = (e) => {
+    const pct = getBarPct(e);
+    const bar = progressRef.current;
+    if (!bar) return;
+    const rect = bar.getBoundingClientRect();
+    setHoverTime(pct * duration);
+    setHoverX(e.clientX - rect.left);
+  };
+
+  const toggleFullscreen = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) el.requestFullscreen();
+    else document.exitFullscreen();
+  };
+
+  const fmt = (s) => {
+    if (!s || isNaN(s)) return "0:00";
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60).toString().padStart(2, "0");
+    return `${m}:${sec}`;
+  };
+
+  // Derive container style from aspect ratio:
+  // - Landscape (>1): full width, height = width / ratio (capped at 80vh)
+  // - Portrait (<=1): height = 80vh, width = height * ratio (centered)
+  const containerStyle = (() => {
+    if (!aspectRatio) return { width: "100%", maxWidth: "56rem" };
+    if (aspectRatio >= 1) {
+      // Landscape — fill width, height follows
+      return { width: "100%", maxWidth: "56rem", aspectRatio: `${aspectRatio}` };
+    } else {
+      // Portrait — cap height, shrink width to match
+      return { height: "80vh", aspectRatio: `${aspectRatio}`, maxWidth: "56rem" };
+    }
+  })();
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative rounded-2xl overflow-hidden"
+      style={{ ...containerStyle, cursor: showControls ? "default" : "none" }}
+      onMouseMove={resetHideTimer}
+      onMouseLeave={() => { clearTimeout(hideTimer.current); setShowControls(false); setHoverTime(null); }}
+    >
+      <video
+        ref={videoRef}
+        src={src}
+        autoPlay
+        playsInline
+        muted={muted}
+        onTimeUpdate={onTimeUpdate}
+        onLoadedMetadata={onLoadedMetadata}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onClick={togglePlay}
+        className="w-full h-full object-cover block"
+      />
+
+      {/* Big centre pause icon */}
+      {!playing && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-20 h-20 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm">
+            <svg viewBox="0 0 24 24" className="w-10 h-10 fill-white ml-1">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* Controls overlay */}
+      <div
+        className={`absolute bottom-0 left-0 right-0 transition-opacity duration-300 select-none ${
+          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)" }}
+      >
+        {/* Progress bar */}
+        <div className="px-4 pt-8 pb-2">
+          <div
+            ref={progressRef}
+            className="relative w-full h-1 rounded-full cursor-pointer group/bar"
+            style={{ background: "rgba(255,255,255,0.25)" }}
+            onClick={seek}
+            onMouseMove={onProgressMouseMove}
+            onMouseLeave={() => setHoverTime(null)}
+          >
+            <div className="absolute top-0 left-0 h-full rounded-full bg-white" style={{ width: `${progress}%` }} />
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white shadow-lg opacity-0 group-hover/bar:opacity-100 transition-opacity"
+              style={{ left: `calc(${progress}% - 7px)` }}
+            />
+            {hoverTime !== null && (
+              <div
+                className="absolute -top-8 text-xs text-white bg-black/80 px-2 py-0.5 rounded pointer-events-none"
+                style={{ left: hoverX, transform: "translateX(-50%)" }}
+              >
+                {fmt(hoverTime)}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Buttons row */}
+        <div className="flex items-center justify-between px-4 pb-4">
+          <div className="flex items-center gap-4">
+            <button onClick={togglePlay} className="text-white hover:text-white/70 transition-colors">
+              {playing ? (
+                <svg viewBox="0 0 24 24" className="w-7 h-7 fill-current"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="w-7 h-7 fill-current"><path d="M8 5v14l11-7z" /></svg>
+              )}
+            </button>
+
+            <div className="flex items-center gap-2 group/vol">
+              <button onClick={toggleMute} className="text-white hover:text-white/70 transition-colors">
+                {muted || volume === 0 ? (
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" /></svg>
+                ) : volume < 0.5 ? (
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current"><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z" /></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
+                )}
+              </button>
+              <input
+                type="range" min="0" max="1" step="0.02"
+                value={muted ? 0 : volume}
+                onChange={changeVolume}
+                className="w-0 group-hover/vol:w-20 transition-all duration-300 overflow-hidden accent-white cursor-pointer h-1"
+              />
+            </div>
+
+            <span className="text-white/70 text-sm font-mono tabular-nums">
+              {fmt(currentTime)} <span className="text-white/40">/</span> {fmt(duration)}
+            </span>
+          </div>
+
+          <button onClick={toggleFullscreen} className="text-white hover:text-white/70 transition-colors">
+            {isFullscreen ? (
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" /></svg>
+            ) : (
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" /></svg>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ===================== GRID CARD ===================== */
 
 const VideoCard = ({ video, onClick }) => {
@@ -329,7 +575,7 @@ export default function VideoGrid() {
 
       {activeVideo && (
         <div
-          className="fixed inset-0 z-[9999] bg-black/95"
+          className="fixed inset-0 z-[9999] bg-black/95 overflow-y-auto"
           onClick={() => setActiveVideo(null)}
         >
           <button
@@ -346,16 +592,10 @@ export default function VideoGrid() {
           </button>
 
           <div
-            className="min-h-screen flex flex-col items-center justify-center px-6 py-20"
+            className="flex flex-col items-center px-6 pt-16 pb-24"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal video uses the optimised src with q_auto,f_auto */}
-            <video
-              src={getOptimisedSrc(activeVideo.src)}
-              controls
-              autoPlay
-              className="max-w-5xl max-h-[70vh] rounded-2xl"
-            />
+            <CustomPlayer src={getOptimisedSrc(activeVideo.src)} />
 
             <div className="mt-10 text-center max-w-3xl">
               <h2 className="flex items-center justify-center gap-4 text-4xl font-bold">
